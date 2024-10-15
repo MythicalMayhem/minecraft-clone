@@ -9,12 +9,11 @@
 			"command": "g++",
 			"windows": {
 				"args": [
-					"${workspaceRoot}/src/main.cpp",
-					// Include all source files.
-					"${workspaceRoot}/src/glad.c",  
+					"${workspaceRoot}/src/glad.c",
+					"${workspaceRoot}/src/main.c",
 					"--std=c++17",
-					"-I${workspaceFolder}/include", 
-					"-L${workspaceRoot}/lib", 
+					"-I${workspaceFolder}/include",
+					"-L${workspaceRoot}/lib",
 					"-lglfw3dll",
 					"-o",
 					"${workspaceRoot}/builds/main"
@@ -24,6 +23,12 @@
 				"kind": "build",
 				"isDefault": true
 			}
+		},
+		{
+			"label": "Run",
+			"type": "process",
+			"command": "builds/main.exe",
+			"problemMatcher": ["$gcc"]
 		}
 	]
 }
