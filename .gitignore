@@ -2,3 +2,4 @@
 /builds/linux/*.exe
 /builds/windows/*.exe
 .editorconfig
+builds/glm

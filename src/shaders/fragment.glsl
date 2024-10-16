@@ -7,9 +7,8 @@ out vec4 FragColor;
 in vec4 vertexColor;
 in vec2 TexCoord;
 
-
 void main()
 {
-   FragColor = texture(customTexture,TexCoord);
+   FragColor=texture(customTexture,TexCoord);
    // FragColor=customColor;
 };
