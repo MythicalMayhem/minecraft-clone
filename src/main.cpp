@@ -1,67 +1,106 @@
-#include <stb_image.h>
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-#include <classes/shader.h> 
-#include <classes/vertex.h>
 #include <iostream> 
 #include <math.h>
 #include <time.h>
+
+#include <stb_image.h>
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <classes/shader.h> 
+#include <classes/vertex.h>
+#include <SimplexNoise.h>
+
+
 
 using namespace std;
-void processInput(GLFWwindow* window) {
-  if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-    glfwSetWindowShouldClose(window, true);
-}
+// settings
+const unsigned int SCR_WIDTH = 800;
+const unsigned int SCR_HEIGHT = 600;
+
+// camera
+glm::vec3 cameraPos = glm::vec3(-20.0f, 0.0f, 10.0f);
+glm::vec3 cameraFront = glm::normalize(glm::vec3(20.0f, 0.0f, 10.0f) - cameraPos);
+glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+
+float mouseX = SCR_WIDTH / 2.0f, mouseY = SCR_HEIGHT / 2.0f;
+float yaw = -0.0f;	// yaw is initialized to -90.0 degrees since a yaw of 0.0 results in a direction vector pointing to the right so we initially rotate a bit to the left.
+float pitch = 0.0f;
+bool firstMouse = true;
+void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
+
+  if (firstMouse) {
+    mouseX = (float)xpos;
+    mouseY = (float)ypos;
+    firstMouse = false;
+    return;
+  }
+
+  float xoffset = (float)xpos - mouseX;
+  float yoffset = mouseY - (float)ypos;
+  mouseX = (float)xpos;
+  mouseY = (float)ypos;
+
+  const float sensitivity = 0.1f;
+  xoffset *= sensitivity;
+  yoffset *= sensitivity;
+  yaw += xoffset;
+  pitch += yoffset;
+  if (pitch > 89.0f)  pitch = 89.0f;
+  if (pitch < -89.0f) pitch = -89.0f;
+
+  glm::vec3 direction;
+  direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+  direction.y = sin(glm::radians(pitch));
+  direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+  cameraFront = glm::normalize(direction);
+};
 GLFWwindow* InitializeWindow() {
   glfwInit();
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-  GLFWwindow* window = glfwCreateWindow(800, 800, "ALL PRAISE DUE TO THE MOST HIGH ALLAH", NULL, NULL);
+  GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "ALL PRAISE DUE TO THE MOST HIGH ALLAH", NULL, NULL);
   if (!window) {
     printf("Failed to create GLFW window");
     glfwTerminate();
     exit(-1);
   }
   glfwMakeContextCurrent(window);
+  glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+  glfwSetCursorPosCallback(window, mouse_callback);
   gladLoadGL();
-  glViewport(0, 0, 800, 800);
+  glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
   return window;
+}
+void processInput(GLFWwindow* window) {
+  if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) glfwSetWindowShouldClose(window, true);
+
+  const float cameraSpeed = 0.015f; // adjust accordingly
+
+  if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) cameraPos += cameraSpeed * cameraFront;
+  if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) cameraPos -= cameraSpeed * cameraFront;
+  if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+  if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+  if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) cameraPos -= glm::vec3(0.0f, cameraSpeed, 0.0f);
+  if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) cameraPos += glm::vec3(0.0f, cameraSpeed, 0.0f);
+
 }
 
 
-void pushOneBlockToBuffer(float arr[], int from, float posx, float posy, float posz, float height) {
-  vertex upLeft, downRight, downLeft, upRight;
-  upLeft.fillRandom();
-  upRight.fillRandom();
-  downLeft.fillRandom();
-  downRight.fillRandom();
-
-  upLeft.setPosition(posx, posy, posz, 0.0, 0.0);
-  upRight.setPosition(posx + height, posy, posz, 1.0, 0.0);
-  downLeft.setPosition(posx, posy - height, posz, 0.0, 1.0);
-  downRight.setPosition(posx + height, posy - height, posz, 1.0, 1.0);
 
 
-  upLeft.pushElementsToBuffer(arr, from);
-  upRight.pushElementsToBuffer(arr, from + 8);
-  downLeft.pushElementsToBuffer(arr, from + 16);
-  downRight.pushElementsToBuffer(arr, from + 24);
 
-
-};
-
-int main(int argc, char const* argv[])
-{
+int main(int argc, char const* argv[]) {
   GLFWwindow* window = InitializeWindow();
-  char vertexShaderFilePath[] = "src/shaders/vertex.glsl";
-  char fragmentShaderFilePath[] = "src/shaders/fragment.glsl";
+  char vertexShaderFilePath[] = "src/shaders/vertex.vs";
+  char fragmentShaderFilePath[] = "src/shaders/fragment.fs";
   char textureFilePath[] = "assets/blocks/grass.png";
 
+  glEnable(GL_DEPTH_TEST);
   const unsigned short int numShaders = 10;
   shader vertexShader, fragmentShader;
   vertexShader.Init(GL_VERTEX_SHADER, &(*vertexShaderFilePath));
@@ -87,17 +126,25 @@ int main(int argc, char const* argv[])
   const unsigned int numVertices = numBlocks * vertecePerBlock;
 
   vertex vertices[numVertices];
-  float bufferedVertices[] = {
-    -0.50, 0.00, 0.00, 0.22, 0.63, 0.88, 0.00, 0.00,
-    -0.30, 0.00, 0.00, 0.88, 0.32, 0.65, 1.00, 0.00,
-    -0.50, -0.20, 0.00, 0.96, 0.87, 0.94, 0.00, 1.00,
-    -0.30, -0.20, 0.00, 0.10, 0.98, 0.98, 1.00, 1.00,
+  unsigned int  indices[] = {
+    0, 1, 2, 2, 3, 0,//front
+    0, 4, 1, 1, 5, 4,//left
+    4, 6, 5, 6, 7, 4,//back 
+    3, 6, 7, 6, 2, 3,//right
+    1, 2, 5, 5, 6, 2, //bottom
+    0, 4, 7, 7, 0, 3  //top
   };
-  int indices[] = { 0, 1, 2, 2, 3, 1 };
-  for (int i = 0; i < numBlocks; i++) {
-    printf("block %d", i);
-    pushOneBlockToBuffer(bufferedVertices, i * vertecePerBlock * 8, i * 0.2 - 0.5, 0.0, 0.0, 0.2);
-  }
+  float bufferedVertices[] = {
+     0.5f,  0.5f,  0.5f, 1.0f, 1.0f, // front upright 
+     0.5f, -0.5f,  0.5f, 1.0f, 0.0f, // front downright
+    -0.5f, -0.5f,  0.5f, 0.0f, 0.0f, // front downleft
+    -0.5f,  0.5f,  0.5f, 0.0f, 1.0f, // front upleft  
+     0.5f,  0.5f, -0.5f, 0.0f, 1.0f, // right up right
+     0.5f, -0.5f, -0.5f, 0.0f, 0.0f, // right down right 
+    -0.5f, -0.5f, -0.5f, 1.0f, 0.0f, // back downleft right
+    -0.5f,  0.5f, -0.5f, 1.0f, 1.0f, // back upleft right
+  };
+
 
   //? VBO is the buffer resides on the server side(the gpu) for unknown data, VAO is the description of the VBO in the cpu
   unsigned int VBO, VAO, EBO;
@@ -108,26 +155,24 @@ int main(int argc, char const* argv[])
   glBindVertexArray(VAO);
   glBindBuffer(GL_ARRAY_BUFFER, VBO);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(bufferedVertices), bufferedVertices, GL_STATIC_DRAW);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-  glEnableVertexAttribArray(0); glEnableVertexAttribArray(1); glEnableVertexAttribArray(2);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(0));
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-  glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-
-  glBindVertexArray(VAO);
-  glBindBuffer(GL_ARRAY_BUFFER, VBO);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(bufferedVertices), bufferedVertices, GL_STATIC_DRAW);
+
+
+  glEnableVertexAttribArray(0); glEnableVertexAttribArray(1);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(0));
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+
 
   int width, height, nrChannels;
   unsigned int texture;
+  stbi_set_flip_vertically_on_load(true);
   glGenTextures(1, &texture);
   glBindTexture(GL_TEXTURE_2D, texture);
-  // set the texture wrapping parameters
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  // set texture filtering parameters
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
@@ -141,33 +186,53 @@ int main(int argc, char const* argv[])
     exit(-2);
   }
   stbi_image_free(data);
+  glUseProgram(shaderProgram);
+
+  glm::mat4 projection = glm::mat4(1.0f);
+  projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+  unsigned int projectionLoc = glGetUniformLocation(shaderProgram, "projection");
+  glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
 
-
-
-    glm::mat4 transform = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
-    transform = glm::translate(transform, glm::vec3(0.5f, -0.5f, 0.0f));
-    transform = glm::rotate(transform, (float)0.25, glm::vec3(0.0f, 0.0f, 1.0f));
 
   // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-  while (!glfwWindowShouldClose(window)) {
-    glClear(GL_COLOR_BUFFER_BIT);
-    processInput(window);
 
-    unsigned int transformLoc = glGetUniformLocation(shaderProgram, "transform");
-    glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
+
+  while (!glfwWindowShouldClose(window)) {
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    processInput(window);
     glUseProgram(shaderProgram);
 
-    // create transformations
-
-    // get matrix's uniform location and set matrix
     glBindTexture(GL_TEXTURE_2D, texture);
     glBindVertexArray(VAO);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+
+    glm::mat4 view = glm::mat4(1.0f);
+    view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+    unsigned int viewLoc = glGetUniformLocation(shaderProgram, "view");
+    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+    float MapWidth  = 20;
+    float MapHeight = 20;
+    float MaxY = 10;
+
+    for (unsigned int i = 0; i < MapWidth; i++) {
+      for (unsigned int j = 0; j < MapHeight; j++) {
+        double nx = i / MapWidth - 0.5, ny = j / MapHeight - 0.5;
+        int h = SimplexNoise::noise(nx, ny) * MaxY;
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3((float)i, h, (float)j));
+        unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(float), GL_UNSIGNED_INT, 0);
+      }
+    }
     glfwSwapBuffers(window);
     glfwPollEvents();
   }
-
+  glDeleteVertexArrays(1, &VAO);
+  glDeleteBuffers(1, &VBO);
   glfwTerminate();
   return 0;
 }

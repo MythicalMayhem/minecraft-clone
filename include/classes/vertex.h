@@ -21,5 +21,6 @@ public:
   void setPosition(float x, float y, float z, float s, float t);
   void setColor(float r, float g, float b);
   void pushElementsToBuffer(float arr[], int from); 
+  void pushPositionsToBuffer(float arr[], int from); 
   Vector3 getPosition();
 };

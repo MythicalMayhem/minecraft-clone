@@ -20,6 +20,13 @@ Vector3 vertex::getPosition() {
   Vector3 res = { this->_x, this->_y, this->_z , };
   return res;
 };
+void vertex::pushPositionsToBuffer(float arr[], int from) {
+  arr[from + 0] = this->_x;
+  arr[from + 1] = this->_y;
+  arr[from + 2] = this->_z;
+  arr[from + 6] = this->_s;
+  arr[from + 7] = this->_t;
+}
 void vertex::pushElementsToBuffer(float arr[], int from) {
   arr[from + 0] = this->_x;
   arr[from + 1] = this->_y;
