@@ -1,6 +1,8 @@
 #include <iostream> 
+#include <unordered_map>
 #include <math.h>
 #include <time.h>
+#include <stdlib.h>
 
 #include <stb_image.h>
 #include <glad/glad.h>
@@ -11,13 +13,13 @@
 
 #include <classes/shader.h> 
 #include <classes/vertex.h>
-#include <SimplexNoise.h>
+#include <noise.h>
 
 
 
 using namespace std;
 // settings
-const unsigned int SCR_WIDTH = 800;
+const unsigned int SCR_WIDTH = 1000;
 const unsigned int SCR_HEIGHT = 600;
 
 // camera
@@ -30,8 +32,8 @@ float mouseX = SCR_WIDTH / 2.0f, mouseY = SCR_HEIGHT / 2.0f;
 float yaw = -0.0f;	// yaw is initialized to -90.0 degrees since a yaw of 0.0 results in a direction vector pointing to the right so we initially rotate a bit to the left.
 float pitch = 0.0f;
 bool firstMouse = true;
-void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
 
+void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
   if (firstMouse) {
     mouseX = (float)xpos;
     mouseY = (float)ypos;
@@ -49,6 +51,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
   yoffset *= sensitivity;
   yaw += xoffset;
   pitch += yoffset;
+
   if (pitch > 89.0f)  pitch = 89.0f;
   if (pitch < -89.0f) pitch = -89.0f;
 
@@ -79,21 +82,15 @@ GLFWwindow* InitializeWindow() {
 void processInput(GLFWwindow* window) {
   if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) glfwSetWindowShouldClose(window, true);
 
-  const float cameraSpeed = 0.015f; // adjust accordingly
-
+  float cameraSpeed = 0.5f;// glm::max(0.07, 0.1f * glfwGetTime());  //* glfwGetTime(); // adjust accordingly
+  glfwSetTime(0.0f);
   if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) cameraPos += cameraSpeed * cameraFront;
   if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) cameraPos -= cameraSpeed * cameraFront;
   if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
   if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
   if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) cameraPos -= glm::vec3(0.0f, cameraSpeed, 0.0f);
   if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) cameraPos += glm::vec3(0.0f, cameraSpeed, 0.0f);
-
 }
-
-
-
-
-
 int main(int argc, char const* argv[]) {
   GLFWwindow* window = InitializeWindow();
   char vertexShaderFilePath[] = "src/shaders/vertex.vs";
@@ -135,12 +132,12 @@ int main(int argc, char const* argv[]) {
     0, 4, 7, 7, 0, 3  //top
   };
   float bufferedVertices[] = {
-     0.5f,  0.5f,  0.5f, 1.0f, 1.0f, // front upright 
+     0.5f,  0.5f,  0.5f, 1.0f, 1.0f, // front upright
      0.5f, -0.5f,  0.5f, 1.0f, 0.0f, // front downright
     -0.5f, -0.5f,  0.5f, 0.0f, 0.0f, // front downleft
-    -0.5f,  0.5f,  0.5f, 0.0f, 1.0f, // front upleft  
+    -0.5f,  0.5f,  0.5f, 0.0f, 1.0f, // front upleft
      0.5f,  0.5f, -0.5f, 0.0f, 1.0f, // right up right
-     0.5f, -0.5f, -0.5f, 0.0f, 0.0f, // right down right 
+     0.5f, -0.5f, -0.5f, 0.0f, 0.0f, // right down right
     -0.5f, -0.5f, -0.5f, 1.0f, 0.0f, // back downleft right
     -0.5f,  0.5f, -0.5f, 1.0f, 1.0f, // back upleft right
   };
@@ -189,7 +186,7 @@ int main(int argc, char const* argv[]) {
   glUseProgram(shaderProgram);
 
   glm::mat4 projection = glm::mat4(1.0f);
-  projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+  projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 500.0f);
   unsigned int projectionLoc = glGetUniformLocation(shaderProgram, "projection");
   glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
@@ -197,37 +194,54 @@ int main(int argc, char const* argv[]) {
 
   // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
+  float MaxY = 5.0f;
+  float numChunksX = 4.0f;
+  float numChunksY = 4.0f;
+  int renderDistance = 1;
+  glfwSetTime(0.0f);
+  glBindTexture(GL_TEXTURE_2D, texture);
+  glBindVertexArray(VAO);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 
   while (!glfwWindowShouldClose(window)) {
-
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     processInput(window);
     glUseProgram(shaderProgram);
 
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glBindVertexArray(VAO);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 
     glm::mat4 view = glm::mat4(1.0f);
     view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
     unsigned int viewLoc = glGetUniformLocation(shaderProgram, "view");
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-    float MapWidth  = 20;
-    float MapHeight = 20;
-    float MaxY = 10;
 
-    for (unsigned int i = 0; i < MapWidth; i++) {
-      for (unsigned int j = 0; j < MapHeight; j++) {
-        double nx = i / MapWidth - 0.5, ny = j / MapHeight - 0.5;
-        int h = SimplexNoise::noise(nx, ny) * MaxY;
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3((float)i, h, (float)j));
-        unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(float), GL_UNSIGNED_INT, 0);
-      }
+    int maxHeight = 10;
+    int startx = cameraPos.x / 16;
+    int starty = cameraPos.z / 16;
+
+    if (startx <= 0) startx - 16;
+    else startx + 16;
+    
+
+    int renderdist = 3;
+    int m = renderdist;
+    for (float cx = startx - renderdist; cx < startx + renderdist; cx++) {
+      m--;
+      for (int cy = starty - renderdist + abs(m); cy < starty + renderdist - abs(m) - 1; cy++)
+        for (int i = 0; i < 16; i++)
+          for (int j = 0; j < 16; j++) {
+            double nx = i / 16.0f;
+            double ny = j / 16.0f;
+            int amplitude = perlin(nx, ny) * maxHeight;
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::translate(model, glm::vec3((int)(i + cx * 16), amplitude, (int)(j + cy * 16)));
+            unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+            glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(float), GL_UNSIGNED_INT, 0);
+          }
     }
+
+
+
     glfwSwapBuffers(window);
     glfwPollEvents();
   }
