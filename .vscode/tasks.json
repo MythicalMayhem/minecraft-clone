@@ -10,8 +10,7 @@
 			"windows": {
 				"args": [
 					"${workspaceRoot}/src/glad.c",
-					"${workspaceRoot}/src/main.c",
-					"--std=c++17",
+					"${workspaceRoot}/src/main.cpp", 
 					"-I${workspaceFolder}/include",
 					"-L${workspaceRoot}/lib",
 					"-lglfw3dll",

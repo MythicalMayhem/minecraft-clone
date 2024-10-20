@@ -2,9 +2,9 @@
 #include <noise.h> 
 #include <stdlib.h>
 
-float interpolate(float a0, float a1, float w) {    return (a1 - a0) * w + a0;}
+float interpolate(float a0, float a1, float w) { return (a1 - a0) * w + a0; }
 
-vector2 randomGradient(int ix, int iy) {
+vector2 randomGradient(int ix, int iy, int seed) {
     // No precomputed gradients mean this works for any number of grid coordinates
     const unsigned w = 8 * sizeof(unsigned);
     const unsigned s = w / 2; // rotation width
@@ -12,7 +12,8 @@ vector2 randomGradient(int ix, int iy) {
     a *= 3284157443; b ^= a << s | a >> w - s;
     b *= 1911520717; a ^= b << s | b >> w - s;
     a *= 2048419325;
-    float random = a * (3.14159265 / ~(~0u >> 1)); // in [0, 2*Pi]
+    float random =seed*a * (3.14159265 / ~(~0u >> 1)); // in [0, 2*Pi]
+    // srand(seed);
     // float random = rand();
     vector2 v;
     v.x = cos(random); v.y = sin(random);
@@ -20,9 +21,9 @@ vector2 randomGradient(int ix, int iy) {
 }
 
 // Computes the dot product of the distance and gradient vectors.
-float dotGridGradient(int ix, int iy, float x, float y) {
+float dotGridGradient(int ix, int iy, float x, float y, int seed) {
     // Get gradient from integer coordinates
-    vector2 gradient = randomGradient(ix, iy);
+    vector2 gradient = randomGradient(ix, iy, seed);
 
     // Compute the distance vector
     float dx = x - (float)ix;
@@ -33,7 +34,7 @@ float dotGridGradient(int ix, int iy, float x, float y) {
 }
 
 // Compute Perlin noise at coordinates x, y
-float perlin(float x, float y) {
+float perlin(float x, float y, int seed) {
     // Determine grid cell coordinates
     int x0 = (int)floor(x);
     int x1 = x0 + 1;
@@ -48,12 +49,12 @@ float perlin(float x, float y) {
     // Interpolate between grid point gradients
     float n0, n1, ix0, ix1, value;
 
-    n0 = dotGridGradient(x0, y0, x, y);
-    n1 = dotGridGradient(x1, y0, x, y);
+    n0 = dotGridGradient(x0, y0, x, y, seed);
+    n1 = dotGridGradient(x1, y0, x, y, seed);
     ix0 = interpolate(n0, n1, sx);
 
-    n0 = dotGridGradient(x0, y1, x, y);
-    n1 = dotGridGradient(x1, y1, x, y);
+    n0 = dotGridGradient(x0, y1, x, y, seed);
+    n1 = dotGridGradient(x1, y1, x, y, seed);
     ix1 = interpolate(n0, n1, sx);
 
     value = interpolate(ix0, ix1, sy);
