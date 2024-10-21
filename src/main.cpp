@@ -23,7 +23,7 @@
 
 #include <classes/shader.h> 
 #include <classes/vertex.h>
-#include <noise.h>
+#include <SimplexNoise.h>
 
 
 
@@ -209,8 +209,7 @@ int main(int argc, char const* argv[]) {
 
   float MaxY = 5.0f;
   float numChunksX = 4.0f;
-  float numChunksY = 4.0f;
-  int renderDistance = 1;
+  float numChunksY = 4.0f; 
   glfwSetTime(0.0f);
   glBindTexture(GL_TEXTURE_2D, texture);
   glBindVertexArray(VAO);
@@ -226,6 +225,7 @@ int main(int argc, char const* argv[]) {
   ImGui_ImplOpenGL3_Init("#version 330");
   int maxHeight = 10;
   int renderdist = 10;
+  SimplexNoise noise(0.01, 1, 2.0, 0.5);
   while (!glfwWindowShouldClose(window)) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     ImGui_ImplOpenGL3_NewFrame();
@@ -233,12 +233,10 @@ int main(int argc, char const* argv[]) {
     ImGui::NewFrame();
     processInput(window);
     glUseProgram(shaderProgram);
-
     glm::mat4 view = glm::mat4(1.0f);
     view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
     unsigned int viewLoc = glGetUniformLocation(shaderProgram, "view");
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-
 
     int startx = cameraPos.x / 16;
     int starty = cameraPos.z / 16;
@@ -253,7 +251,8 @@ int main(int argc, char const* argv[]) {
           for (int j = 0; j < 16; j++) {
             double nx = i / 16.0f;
             double ny = j / 16.0f;
-            int amplitude = perlin(nx, ny, cx * cy) * maxHeight;
+
+            int amplitude = noise.fractal(10, (float)(cx * 16 + i), (float)(cy * 16 + j)) * maxHeight;
             glm::mat4 model = glm::mat4(1.0f);
             model = glm::translate(model, glm::vec3((int)(i + cx * 16), amplitude, (int)(j + cy * 16)));
             unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
@@ -265,7 +264,7 @@ int main(int argc, char const* argv[]) {
 
     ImGui::Begin("ImGUI window");
     ImGui::Text(to_string(cameraPos.x).c_str());
-    ImGui::Text(to_string(cameraPos.y).c_str());
+    ImGui::Text(to_string(cameraPos.z).c_str());
     ImGui::End();
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
