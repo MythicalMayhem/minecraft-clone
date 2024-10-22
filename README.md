@@ -1,33 +1,35 @@
+# my Open GL path
 
-# Simple OpenGL vscode template
+## Inspiration
 
-<sub><sup>this took me 3 days to figure out</sup></sub>
+[Procedural Generation of Spiral Galaxies](https://beltoforion.de/en/spiral_galaxy_renderer/spiral-galaxy-renderer.html)
+[Particle Life](https://github.com/tom-mohr/particle-life-app)
+[Minecraft from scratch](https://www.youtube.com/watch?v=4O0_-1NaWnY)
 
-## Downloads
+## Config
 
 GLFW  : Download GLFW pre-compiled binaries from [here](https://www.glfw.org/download.html) and extract the files needed
-
 GLAD : Download Glad with the specific settings needed from [here](https://www.glfw.org/download.html), i personnally chose these
 
 - Language : C/C++
 - API :
   - gl : version 3.3
-  - rest is none ( i think )
+  - rest is none
 - Profile : Compatibility
 - Options : generate loader
 
 ## Installation
 
-1 -  Clone this repo
+1 -  Clone
 
 ```bash
-git clone https://github.com/MythicalMayhem/open-gl-vscode-template
+git clone https://github.com/MythicalMayhem/graphics-programing
 ```
 
 2 - open with vscode
 
 ```bash
-cd open-gl-vscode-template
+cd graphics-programing
 code .
 ```
 
@@ -39,6 +41,5 @@ code .
 
 ## Acknowledgements
 
-- [this repo](https://github.com/GuylianGilsing/Visual-Studio-Code-OpenGL-Setup)
-- [this video](https://www.youtube.com/watch?app=desktop&v=Y4F0tI7WlDs)
 - [learnopengl.com](https://learnopengl.com/)
+- [this guy](https://www.youtube.com/watch?v=XpBGwZNyUh0) on youtube
