@@ -4,15 +4,12 @@ layout(location=1)in vec2 aTexCoord;
 
 uniform mat4 model;
 uniform mat4 view;
-uniform mat4 projection;
-uniform int alightPower;
+uniform mat4 projection; 
 
-out vec2 TexCoord;
-out int lightPower;
+out vec2 TexCoord; 
 
 void main()
 {
    gl_Position=projection*view*model*vec4(aPos,1.);
-   TexCoord=vec2(aTexCoord.x,aTexCoord.y);
-   lightPower=alightPower;
+   TexCoord=vec2(aTexCoord.x,aTexCoord.y); 
 }

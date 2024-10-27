@@ -3,15 +3,11 @@
 #include <math.h>
 #include <time.h>
 #include <stdlib.h>
-#include <string>
+#include <string> 
 
 #include <imgui/imgui.h>
 #include <imgui/imgui_impl_opengl3.h>
 #include <imgui/imgui_impl_glfw.h>
-
-
-
-
 
 
 #include <stb_image.h>
@@ -209,7 +205,7 @@ int main(int argc, char const* argv[]) {
 
   float MaxY = 5.0f;
   float numChunksX = 4.0f;
-  float numChunksY = 4.0f; 
+  float numChunksY = 4.0f;
   glfwSetTime(0.0f);
   glBindTexture(GL_TEXTURE_2D, texture);
   glBindVertexArray(VAO);
@@ -224,19 +220,35 @@ int main(int argc, char const* argv[]) {
   ImGui_ImplGlfw_InitForOpenGL(window, true);
   ImGui_ImplOpenGL3_Init("#version 330");
   int maxHeight = 10;
-  int renderdist = 10;
+  const int renderdist = 8;
   SimplexNoise noise(0.01, 1, 2.0, 0.5);
+
+
+
+  typedef unordered_map<int, unordered_map<int, glm::mat4>> world;
+  world worldFront;
+  world worldBack;
+  world buffers[] = { worldFront, worldBack };
+  double dt = glfwGetTime();
+  int fps = 0;
+
+  int bufferTurn = 1;
   while (!glfwWindowShouldClose(window)) {
+
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+    ImGui::Begin("ImGUI window");
     processInput(window);
     glUseProgram(shaderProgram);
+
     glm::mat4 view = glm::mat4(1.0f);
     view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
     unsigned int viewLoc = glGetUniformLocation(shaderProgram, "view");
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+
+    bufferTurn = (bufferTurn + 1) % 2;
 
     int startx = cameraPos.x / 16;
     int starty = cameraPos.z / 16;
@@ -244,25 +256,43 @@ int main(int argc, char const* argv[]) {
     if (starty >= 0) starty += 1;
 
     int m = renderdist;
-    for (float cx = startx - renderdist; cx < startx + renderdist; cx++) {
-      m--;
+    for (float cx = startx - renderdist; cx < startx + renderdist; cx++ && m--) {
       for (int cy = starty - renderdist + abs(m); cy < starty + renderdist - abs(m) - 1; cy++)
         for (int i = 0; i < 16; i++)
           for (int j = 0; j < 16; j++) {
-            double nx = i / 16.0f;
-            double ny = j / 16.0f;
 
-            int amplitude = noise.fractal(10, (float)(cx * 16 + i), (float)(cy * 16 + j)) * maxHeight;
-            glm::mat4 model = glm::mat4(1.0f);
-            model = glm::translate(model, glm::vec3((int)(i + cx * 16), amplitude, (int)(j + cy * 16)));
+            int x = (int)(i + cx * 16);
+            int z = (int)(j + cy * 16);
+
+            glm::mat4 model;
+            bool exists = (buffers[(bufferTurn + 1) % 2].find(x) != buffers[(bufferTurn + 1) % 2].end()) && (buffers[(bufferTurn + 1) % 2][x].find(z) != buffers[(bufferTurn + 1) % 2][x].end());
+            if (exists) {
+              model = buffers[(bufferTurn + 1) % 2][x][z];
+              buffers[bufferTurn][x][z] = buffers[(bufferTurn + 1) % 2][x][z];
+            }
+            else {
+              double nx = i / 16.0f;
+              double ny = j / 16.0f;
+              int amplitude = noise.fractal(10, (float)x, (float)z) * maxHeight;
+              glm::mat4 model = glm::mat4(1.0f);
+              model = glm::translate(model, glm::vec3(x, amplitude, z));
+              buffers[bufferTurn][x][z] = model;
+            }
             unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
             glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(float), GL_UNSIGNED_INT, 0);
           }
     }
+    buffers[(bufferTurn + 1) % 2].clear();
 
+    double currentTime = glfwGetTime();
+    fps++;
 
-    ImGui::Begin("ImGUI window");
+    if (currentTime - dt >= 1.0) {
+      fps = 0;
+      dt = currentTime;
+    }
+    ImGui::Text(to_string(fps).c_str());
     ImGui::Text(to_string(cameraPos.x).c_str());
     ImGui::Text(to_string(cameraPos.z).c_str());
     ImGui::End();
