@@ -179,7 +179,7 @@ int main(int argc, char const* argv[]) {
   glBindTexture(GL_TEXTURE_2D, texture);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
   unsigned char* data = stbi_load(textureFilePath, &width, &height, &nrChannels, 0);
@@ -199,20 +199,12 @@ int main(int argc, char const* argv[]) {
   unsigned int projectionLoc = glGetUniformLocation(shaderProgram, "projection");
   glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
-
-
-  // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
-  float MaxY = 5.0f;
-  float numChunksX = 4.0f;
-  float numChunksY = 4.0f;
+  // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); 
   glfwSetTime(0.0f);
   glBindTexture(GL_TEXTURE_2D, texture);
   glBindVertexArray(VAO);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-  // Initialize ImGUI
-
-
+  // Initialize ImGU
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -220,21 +212,18 @@ int main(int argc, char const* argv[]) {
   ImGui_ImplGlfw_InitForOpenGL(window, true);
   ImGui_ImplOpenGL3_Init("#version 330");
   int maxHeight = 10;
-  const int renderdist = 8;
+  const int renderdist = 5;
   SimplexNoise noise(0.01, 1, 2.0, 0.5);
-
-
 
   typedef unordered_map<int, unordered_map<int, glm::mat4>> world;
   world worldFront;
   world worldBack;
   world buffers[] = { worldFront, worldBack };
-  double dt = glfwGetTime();
-  int fps = 0;
-
+  float dt = 0.0f;
   int bufferTurn = 1;
-  while (!glfwWindowShouldClose(window)) {
 
+  while (!glfwWindowShouldClose(window)) {
+    glfwSetTime(0.0);	
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -249,7 +238,6 @@ int main(int argc, char const* argv[]) {
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
 
     bufferTurn = (bufferTurn + 1) % 2;
-
     int startx = cameraPos.x / 16;
     int starty = cameraPos.z / 16;
     if (startx >= 0) startx += 1;
@@ -260,7 +248,6 @@ int main(int argc, char const* argv[]) {
       for (int cy = starty - renderdist + abs(m); cy < starty + renderdist - abs(m) - 1; cy++)
         for (int i = 0; i < 16; i++)
           for (int j = 0; j < 16; j++) {
-
             int x = (int)(i + cx * 16);
             int z = (int)(j + cy * 16);
 
@@ -285,14 +272,7 @@ int main(int argc, char const* argv[]) {
     }
     buffers[(bufferTurn + 1) % 2].clear();
 
-    double currentTime = glfwGetTime();
-    fps++;
-
-    if (currentTime - dt >= 1.0) {
-      fps = 0;
-      dt = currentTime;
-    }
-    ImGui::Text(to_string(fps).c_str());
+    ImGui::Text(to_string(1/(dt+0.0001)).c_str());
     ImGui::Text(to_string(cameraPos.x).c_str());
     ImGui::Text(to_string(cameraPos.z).c_str());
     ImGui::End();
@@ -301,6 +281,9 @@ int main(int argc, char const* argv[]) {
 
     glfwSwapBuffers(window);
     glfwPollEvents();
+
+    dt = glfwGetTime();
+    glfwSetTime(0);
   }
 
   glDeleteVertexArrays(1, &VAO);
