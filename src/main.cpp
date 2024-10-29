@@ -25,8 +25,8 @@
 
 using namespace std;
 // settings
-const unsigned int SCR_WIDTH = 1000;
-const unsigned int SCR_HEIGHT = 600;
+const unsigned short int SCR_WIDTH = 1000;
+const unsigned short int SCR_HEIGHT = 600;
 
 // camera
 glm::vec3 cameraPos = glm::vec3(-20.0f, 0.0f, 10.0f);
@@ -86,11 +86,10 @@ GLFWwindow* InitializeWindow() {
 
   return window;
 }
-void processInput(GLFWwindow* window) {
+void processInput(GLFWwindow* window, float dt) {
   if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) glfwSetWindowShouldClose(window, true);
 
-  float cameraSpeed = 0.5f;// glm::max(0.07, 0.1f * glfwGetTime());  //* glfwGetTime(); // adjust accordingly
-  glfwSetTime(0.0f);
+  float cameraSpeed = 10.0f * dt;
   if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
   if (glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS) glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
   if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) cameraPos += cameraSpeed * cameraFront;
@@ -215,7 +214,11 @@ int main(int argc, char const* argv[]) {
   const int renderdist = 5;
   SimplexNoise noise(0.01, 1, 2.0, 0.5);
 
-  typedef unordered_map<int, unordered_map<int, glm::mat4>> world;
+  struct block {
+    glm::mat4 model;
+  };
+
+  typedef unordered_map<int, unordered_map<int, unordered_map<int, block>>> world;
   world worldFront;
   world worldBack;
   world buffers[] = { worldFront, worldBack };
@@ -223,13 +226,15 @@ int main(int argc, char const* argv[]) {
   int bufferTurn = 1;
 
   while (!glfwWindowShouldClose(window)) {
-    glfwSetTime(0.0);	
+    glfwSetTime(0.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
     ImGui::Begin("ImGUI window");
-    processInput(window);
+    processInput(window, dt);
+
     glUseProgram(shaderProgram);
 
     glm::mat4 view = glm::mat4(1.0f);
@@ -240,39 +245,66 @@ int main(int argc, char const* argv[]) {
     bufferTurn = (bufferTurn + 1) % 2;
     int startx = cameraPos.x / 16;
     int starty = cameraPos.z / 16;
-    if (startx >= 0) startx += 1;
-    if (starty >= 0) starty += 1;
-
+    if (startx > 0) startx += 1;
+    if (starty > 0) starty += 1;
     int m = renderdist;
+
+    world* pBuff = &buffers[(bufferTurn + 1) % 2];
     for (float cx = startx - renderdist; cx < startx + renderdist; cx++ && m--) {
       for (int cy = starty - renderdist + abs(m); cy < starty + renderdist - abs(m) - 1; cy++)
         for (int i = 0; i < 16; i++)
           for (int j = 0; j < 16; j++) {
             int x = (int)(i + cx * 16);
             int z = (int)(j + cy * 16);
+            int y = noise.fractal(10, (float)x, (float)z) * maxHeight;
 
-            glm::mat4 model;
-            bool exists = (buffers[(bufferTurn + 1) % 2].find(x) != buffers[(bufferTurn + 1) % 2].end()) && (buffers[(bufferTurn + 1) % 2][x].find(z) != buffers[(bufferTurn + 1) % 2][x].end());
+            glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, z));; 
+            bool exists = ((*pBuff).find(x) != (*pBuff).end())
+              && ((*pBuff)[x].find(z) != (*pBuff)[x].end())
+              && ((*pBuff)[x][z].find(y) != (*pBuff)[x][z].end());
             if (exists) {
-              model = buffers[(bufferTurn + 1) % 2][x][z];
-              buffers[bufferTurn][x][z] = buffers[(bufferTurn + 1) % 2][x][z];
+              model = (*pBuff)[x][z][y].model;
+              buffers[bufferTurn][x][z][y] = (*pBuff)[x][z][y];
             }
             else {
-              double nx = i / 16.0f;
-              double ny = j / 16.0f;
-              int amplitude = noise.fractal(10, (float)x, (float)z) * maxHeight;
-              glm::mat4 model = glm::mat4(1.0f);
-              model = glm::translate(model, glm::vec3(x, amplitude, z));
-              buffers[bufferTurn][x][z] = model;
+              model = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, z));
+              buffers[bufferTurn][x][z][y].model = model;
             }
+
             unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-            glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(float), GL_UNSIGNED_INT, 0);
+
+            if (!(((*pBuff)[x].find(z + 1) != (*pBuff)[x].end())
+              && ((*pBuff)[x][z + 1].find(y) != (*pBuff)[x][z + 1].end())))
+              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(0 * sizeof(unsigned int))); //front           
+            if (!(((*pBuff)[x].find(z - 1) != (*pBuff)[x].end())
+              && ((*pBuff)[x][z - 1].find(y) != (*pBuff)[x][z - 1].end())))
+              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(12 * sizeof(unsigned int))); // back
+            if (!((*pBuff)[x][z].find(y - 1) != (*pBuff)[x][z].end()))
+              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(24 * sizeof(unsigned int))); //bottom
+
+            if (!((*pBuff)[x][z].find(y + 1) != (*pBuff)[x][z].end()))
+              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(30 * sizeof(unsigned int))); //top
+
+            if (!(((*pBuff).find(x + 1) != (*pBuff).end())
+              && ((*pBuff)[x + 1].find(z) != (*pBuff)[x + 1].end())
+              && ((*pBuff)[x + 1][z].find(y) != (*pBuff)[x + 1][z].end())))
+              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(6 * sizeof(unsigned int))); //left 
+
+
+            if (!(((*pBuff).find(x - 1) != (*pBuff).end())
+              && ((*pBuff)[x - 1].find(z) != (*pBuff)[x - 1].end())
+              && ((*pBuff)[x - 1][z].find(y) != (*pBuff)[x - 1][z].end())))
+              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(18 * sizeof(unsigned int))); //right
+
+            glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(float), GL_UNSIGNED_INT, (void*)0); //right
+
+
           }
     }
-    buffers[(bufferTurn + 1) % 2].clear();
+    (*pBuff).clear();
 
-    ImGui::Text(to_string(1/(dt+0.0001)).c_str());
+    ImGui::Text(to_string(1 / (dt + 0.0001)).c_str());
     ImGui::Text(to_string(cameraPos.x).c_str());
     ImGui::Text(to_string(cameraPos.z).c_str());
     ImGui::End();
