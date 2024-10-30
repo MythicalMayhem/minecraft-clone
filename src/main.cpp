@@ -4,6 +4,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <string> 
+#include <vector>
 
 #include <imgui/imgui.h>
 #include <imgui/imgui_impl_opengl3.h>
@@ -99,6 +100,7 @@ void processInput(GLFWwindow* window, float dt) {
   if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) cameraPos -= glm::vec3(0.0f, cameraSpeed, 0.0f);
   if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) cameraPos += glm::vec3(0.0f, cameraSpeed, 0.0f);
 }
+
 int main(int argc, char const* argv[]) {
   GLFWwindow* window = InitializeWindow();
   char vertexShaderFilePath[] = "src/shaders/vertex.vs";
@@ -210,12 +212,16 @@ int main(int argc, char const* argv[]) {
   ImGui::StyleColorsDark();
   ImGui_ImplGlfw_InitForOpenGL(window, true);
   ImGui_ImplOpenGL3_Init("#version 330");
+
+
   int maxHeight = 10;
-  const int renderdist = 5;
+  const int renderdist = 1;
   SimplexNoise noise(0.01, 1, 2.0, 0.5);
 
   struct block {
     glm::mat4 model;
+    int y = 0;
+    bool exists = false;
   };
 
   float dt = 0.0f;
@@ -239,30 +245,53 @@ int main(int argc, char const* argv[]) {
 
     int startx = cameraPos.x / 16;
     int startz = cameraPos.z / 16;
-    if (startx > 0) startx += 1;
-    if (startz > 0) startz += 1;
 
-    int world[renderdist * 2][renderdist * 2];
-    int m = renderdist - 1;
-    int iterx = 0;
-    int iterz = 0;
+    if (startx <= 0) startx--; else startx++ ;
+    if (startz <= 0) startz--; else startz++ ;
 
-    for (float cx = startx - renderdist; cx < startx + renderdist; cx++ && m-- && iterx++) {
-      for (int cz = startz - renderdist + abs(m); cz < startz + renderdist - abs(m) - 1; cz++ && iterz++) // -1 ??
+    block world[renderdist * 3 * 16][renderdist * 3 * 16];
+
+ 
+    block previousBlock;
+    for (float cx = startx - renderdist; cx < startx + renderdist + 1; cx++ ) {
+      for (int cz = startz - renderdist; cz < startz + renderdist + 1; cz++ ) // -1 ??
         for (int i = 0; i < 16; i++)
           for (int j = 0; j < 16; j++) {
             int x = i + cx * 16;
             int z = j + cz * 16;
-            int y = noise.fractal(10, (float)x, (float)z) * maxHeight;
+            int y = noise.fractal(5, (float)x, (float)z) * maxHeight;
 
             glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, z));
             unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-            glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(float), GL_UNSIGNED_INT, (void*)0);
-            world[iterx][iterz] = y;
+
+
+            int iterx = i + (cx - (startx - renderdist)) * 16;
+            int iterz = j + (cz - (startz - renderdist)) * 16;
+
+            world[iterx][iterz].y = y;
+            world[iterx][iterz].model = model;
+            world[iterx][iterz].exists = true;
+            
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(30 * sizeof(unsigned int))); //top
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(24 * sizeof(unsigned int))); //bottom
+
+            if (!(world[iterx][iterz - 1].exists && (world[iterx][iterz - 1].y == world[iterx][iterz].y))) {
+              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(12 * sizeof(unsigned int)));
+              glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(world[iterx][iterz - 1].model));
+              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(0 * sizeof(unsigned int)));
+              glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(world[iterx][iterz].model));
+            }
+
+            if (!(world[iterx - 1][iterz].exists && (world[iterx - 1][iterz].y == world[iterx][iterz].y))) {
+              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(18 * sizeof(unsigned int)));
+              glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(world[iterx - 1][iterz].model));
+              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(6 * sizeof(unsigned int)));
+            }
 
           }
     }
+
 
     ImGui::Text(to_string(1 / (dt + 0.0001)).c_str());
     ImGui::Text(to_string(cameraPos.x).c_str());
