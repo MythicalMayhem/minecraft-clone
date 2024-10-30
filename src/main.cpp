@@ -218,13 +218,7 @@ int main(int argc, char const* argv[]) {
     glm::mat4 model;
   };
 
-  typedef unordered_map<int, unordered_map<int, unordered_map<int, block>>> world;
-  world worldFront;
-  world worldBack;
-  world buffers[] = { worldFront, worldBack };
   float dt = 0.0f;
-  int bufferTurn = 1;
-
   while (!glfwWindowShouldClose(window)) {
     glfwSetTime(0.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -242,67 +236,33 @@ int main(int argc, char const* argv[]) {
     unsigned int viewLoc = glGetUniformLocation(shaderProgram, "view");
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
 
-    bufferTurn = (bufferTurn + 1) % 2;
-    int startx = cameraPos.x / 16;
-    int starty = cameraPos.z / 16;
-    if (startx > 0) startx += 1;
-    if (starty > 0) starty += 1;
-    int m = renderdist;
 
-    world* pBuff = &buffers[(bufferTurn + 1) % 2];
-    for (float cx = startx - renderdist; cx < startx + renderdist; cx++ && m--) {
-      for (int cy = starty - renderdist + abs(m); cy < starty + renderdist - abs(m) - 1; cy++)
+    int startx = cameraPos.x / 16;
+    int startz = cameraPos.z / 16;
+    if (startx > 0) startx += 1;
+    if (startz > 0) startz += 1;
+
+    int world[renderdist * 2][renderdist * 2];
+    int m = renderdist - 1;
+    int iterx = 0;
+    int iterz = 0;
+
+    for (float cx = startx - renderdist; cx < startx + renderdist; cx++ && m-- && iterx++) {
+      for (int cz = startz - renderdist + abs(m); cz < startz + renderdist - abs(m) - 1; cz++ && iterz++) // -1 ??
         for (int i = 0; i < 16; i++)
           for (int j = 0; j < 16; j++) {
-            int x = (int)(i + cx * 16);
-            int z = (int)(j + cy * 16);
+            int x = i + cx * 16;
+            int z = j + cz * 16;
             int y = noise.fractal(10, (float)x, (float)z) * maxHeight;
 
-            glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, z));; 
-            bool exists = ((*pBuff).find(x) != (*pBuff).end())
-              && ((*pBuff)[x].find(z) != (*pBuff)[x].end())
-              && ((*pBuff)[x][z].find(y) != (*pBuff)[x][z].end());
-            if (exists) {
-              model = (*pBuff)[x][z][y].model;
-              buffers[bufferTurn][x][z][y] = (*pBuff)[x][z][y];
-            }
-            else {
-              model = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, z));
-              buffers[bufferTurn][x][z][y].model = model;
-            }
-
+            glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, z));
             unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-
-            if (!(((*pBuff)[x].find(z + 1) != (*pBuff)[x].end())
-              && ((*pBuff)[x][z + 1].find(y) != (*pBuff)[x][z + 1].end())))
-              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(0 * sizeof(unsigned int))); //front           
-            if (!(((*pBuff)[x].find(z - 1) != (*pBuff)[x].end())
-              && ((*pBuff)[x][z - 1].find(y) != (*pBuff)[x][z - 1].end())))
-              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(12 * sizeof(unsigned int))); // back
-            if (!((*pBuff)[x][z].find(y - 1) != (*pBuff)[x][z].end()))
-              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(24 * sizeof(unsigned int))); //bottom
-
-            if (!((*pBuff)[x][z].find(y + 1) != (*pBuff)[x][z].end()))
-              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(30 * sizeof(unsigned int))); //top
-
-            if (!(((*pBuff).find(x + 1) != (*pBuff).end())
-              && ((*pBuff)[x + 1].find(z) != (*pBuff)[x + 1].end())
-              && ((*pBuff)[x + 1][z].find(y) != (*pBuff)[x + 1][z].end())))
-              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(6 * sizeof(unsigned int))); //left 
-
-
-            if (!(((*pBuff).find(x - 1) != (*pBuff).end())
-              && ((*pBuff)[x - 1].find(z) != (*pBuff)[x - 1].end())
-              && ((*pBuff)[x - 1][z].find(y) != (*pBuff)[x - 1][z].end())))
-              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(18 * sizeof(unsigned int))); //right
-
-            glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(float), GL_UNSIGNED_INT, (void*)0); //right
-
+            glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(float), GL_UNSIGNED_INT, (void*)0);
+            world[iterx][iterz] = y;
 
           }
     }
-    (*pBuff).clear();
 
     ImGui::Text(to_string(1 / (dt + 0.0001)).c_str());
     ImGui::Text(to_string(cameraPos.x).c_str());
