@@ -215,7 +215,7 @@ int main(int argc, char const* argv[]) {
 
 
   int maxHeight = 10;
-  const int renderdist = 1;
+  const int renderdist = 4;
   SimplexNoise noise(0.01, 1, 2.0, 0.5);
 
   struct block {
@@ -223,6 +223,20 @@ int main(int argc, char const* argv[]) {
     int y = 0;
     bool exists = false;
   };
+
+  vector<vector<block>> world;
+  for (float cx = -renderdist; cx < renderdist + 1; cx++) {
+    for (int cz = -renderdist; cz < renderdist + 1; cz++) // -1 ??
+      for (int i = 0; i < 16; i++) {
+        vector<block> Xaxis;
+        world.push_back(Xaxis);
+        for (int j = 0; j < 16; j++) {
+          block b;
+          int iterx = i + (cx - (-renderdist)) * 16;
+          world[iterx].push_back(b);
+        }
+      }
+  }
 
   float dt = 0.0f;
   while (!glfwWindowShouldClose(window)) {
@@ -246,16 +260,11 @@ int main(int argc, char const* argv[]) {
     int startx = cameraPos.x / 16;
     int startz = cameraPos.z / 16;
 
-    if (startx <= 0) startx--; else startx++ ;
-    if (startz <= 0) startz--; else startz++ ;
 
-    block world[renderdist * 3 * 16][renderdist * 3 * 16];
 
- 
-    block previousBlock;
-    for (float cx = startx - renderdist; cx < startx + renderdist + 1; cx++ ) {
-      for (int cz = startz - renderdist; cz < startz + renderdist + 1; cz++ ) // -1 ??
-        for (int i = 0; i < 16; i++)
+    for (float cx = startx - renderdist; cx < startx + renderdist + 1; cx++) {
+      for (int cz = startz - renderdist; cz < startz + renderdist + 1; cz++) // -1 ??
+        for (int i = 0; i < 16; i++) {
           for (int j = 0; j < 16; j++) {
             int x = i + cx * 16;
             int z = j + cz * 16;
@@ -269,31 +278,31 @@ int main(int argc, char const* argv[]) {
             int iterz = j + (cz - (startz - renderdist)) * 16;
 
             world[iterx][iterz].y = y;
-            world[iterx][iterz].model = model;
             world[iterx][iterz].exists = true;
-            
-            glDrawElements(GL_TRIANGLE_STRIP, 6, GL_UNSIGNED_INT, (void*)(30 * sizeof(unsigned int))); //top
-            glDrawElements(GL_TRIANGLE_STRIP, 6, GL_UNSIGNED_INT, (void*)(24 * sizeof(unsigned int))); //bottom
+            world[iterx][iterz].model = model;
 
-            if (!(world[iterx][iterz - 1].exists && (world[iterx][iterz - 1].y == world[iterx][iterz].y))) {
-              glDrawElements(GL_TRIANGLE_STRIP, 6, GL_UNSIGNED_INT, (void*)(12 * sizeof(unsigned int)));
+            // glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(float), GL_UNSIGNED_INT, (void*)(0 * sizeof(unsigned int))); //top
+
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(30 * sizeof(unsigned int))); //top
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(24 * sizeof(unsigned int))); //bottom
+
+
+            if ((iterz > 0) && !(world[iterx][iterz - 1].exists && (world[iterx][iterz - 1].y == world[iterx][iterz].y))) {
+              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(12 * sizeof(unsigned int)));
               glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(world[iterx][iterz - 1].model));
-              glDrawElements(GL_TRIANGLE_STRIP, 6, GL_UNSIGNED_INT, (void*)(0 * sizeof(unsigned int)));
-              glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(world[iterx][iterz].model));
+              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(0 * sizeof(unsigned int)));
             }
 
             if (iterx > 0 && !(world[iterx - 1][iterz].exists && (world[iterx - 1][iterz].y == world[iterx][iterz].y))) {
               glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(world[iterx][iterz].model));
-              glDrawElements(GL_TRIANGLE_STRIP, 6, GL_UNSIGNED_INT, (void*)(18 * sizeof(unsigned int)));
-
+              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(18 * sizeof(unsigned int)));
               glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(world[iterx - 1][iterz].model));
-              glDrawElements(GL_TRIANGLE_STRIP, 6, GL_UNSIGNED_INT, (void*)(6 * sizeof(unsigned int)));
-
+              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(6 * sizeof(unsigned int)));
             }
 
           }
+        }
     }
-
 
     ImGui::Text(to_string(1 / (dt + 0.0001)).c_str());
     ImGui::Text(to_string(cameraPos.x).c_str());
