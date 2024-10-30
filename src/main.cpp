@@ -265,7 +265,6 @@ int main(int argc, char const* argv[]) {
             unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
-
             int iterx = i + (cx - (startx - renderdist)) * 16;
             int iterz = j + (cz - (startz - renderdist)) * 16;
 
@@ -273,20 +272,23 @@ int main(int argc, char const* argv[]) {
             world[iterx][iterz].model = model;
             world[iterx][iterz].exists = true;
             
-            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(30 * sizeof(unsigned int))); //top
-            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(24 * sizeof(unsigned int))); //bottom
+            glDrawElements(GL_TRIANGLE_STRIP, 6, GL_UNSIGNED_INT, (void*)(30 * sizeof(unsigned int))); //top
+            glDrawElements(GL_TRIANGLE_STRIP, 6, GL_UNSIGNED_INT, (void*)(24 * sizeof(unsigned int))); //bottom
 
             if (!(world[iterx][iterz - 1].exists && (world[iterx][iterz - 1].y == world[iterx][iterz].y))) {
-              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(12 * sizeof(unsigned int)));
+              glDrawElements(GL_TRIANGLE_STRIP, 6, GL_UNSIGNED_INT, (void*)(12 * sizeof(unsigned int)));
               glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(world[iterx][iterz - 1].model));
-              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(0 * sizeof(unsigned int)));
+              glDrawElements(GL_TRIANGLE_STRIP, 6, GL_UNSIGNED_INT, (void*)(0 * sizeof(unsigned int)));
               glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(world[iterx][iterz].model));
             }
 
-            if (!(world[iterx - 1][iterz].exists && (world[iterx - 1][iterz].y == world[iterx][iterz].y))) {
-              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(18 * sizeof(unsigned int)));
+            if (iterx > 0 && !(world[iterx - 1][iterz].exists && (world[iterx - 1][iterz].y == world[iterx][iterz].y))) {
+              glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(world[iterx][iterz].model));
+              glDrawElements(GL_TRIANGLE_STRIP, 6, GL_UNSIGNED_INT, (void*)(18 * sizeof(unsigned int)));
+
               glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(world[iterx - 1][iterz].model));
-              glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(6 * sizeof(unsigned int)));
+              glDrawElements(GL_TRIANGLE_STRIP, 6, GL_UNSIGNED_INT, (void*)(6 * sizeof(unsigned int)));
+
             }
 
           }
