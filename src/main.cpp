@@ -200,7 +200,7 @@ int main(int argc, char const* argv[]) {
   unsigned int projectionLoc = glGetUniformLocation(shaderProgram, "projection");
   glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
-  // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); 
+
   glfwSetTime(0.0f);
   glBindTexture(GL_TEXTURE_2D, texture);
   glBindVertexArray(VAO);
@@ -220,7 +220,9 @@ int main(int argc, char const* argv[]) {
 
   struct block {
     glm::mat4 model;
+    int x = 0;
     int y = 0;
+    int z = 0;
     bool exists = false;
   };
 
@@ -239,6 +241,7 @@ int main(int argc, char const* argv[]) {
   }
 
   float dt = 0.0f;
+  // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); 
   while (!glfwWindowShouldClose(window)) {
     glfwSetTime(0.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -268,35 +271,47 @@ int main(int argc, char const* argv[]) {
           for (int j = 0; j < 16; j++) {
             int x = i + cx * 16;
             int z = j + cz * 16;
-            int y = noise.fractal(5, (float)x, (float)z) * maxHeight;
-
-            glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, z));
-            unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
             int iterx = i + (cx - (startx - renderdist)) * 16;
             int iterz = j + (cz - (startz - renderdist)) * 16;
 
-            world[iterx][iterz].y = y;
-            world[iterx][iterz].exists = true;
-            world[iterx][iterz].model = model;
+            block* pBlock = &world[iterx][iterz];
+            unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
+
+            if ((world[iterx][iterz].x == x) && (world[iterx][iterz].z == z)) {
+              glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(pBlock->model));
+            }
+            else {
+              int y = noise.fractal(5, (float)x, (float)z) * maxHeight;
+              glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, z));
+              glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+              pBlock->exists = true;
+              pBlock->model = model;
+              pBlock->x = x;
+              pBlock->y = y;
+              pBlock->z = z;
+            }
+
 
             // glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(float), GL_UNSIGNED_INT, (void*)(0 * sizeof(unsigned int))); //top
-
+  
+            
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(30 * sizeof(unsigned int))); //top
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(24 * sizeof(unsigned int))); //bottom
 
+            block* pPrevXBlock = &world[iterx - 1][iterz];
+            block* pPrevZBlock = &world[iterx][iterz - 1];
 
-            if ((iterz > 0) && !(world[iterx][iterz - 1].exists && (world[iterx][iterz - 1].y == world[iterx][iterz].y))) {
+            if ((iterz > 0) && !(pPrevZBlock->y == pBlock->y)) {
               glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(12 * sizeof(unsigned int)));
-              glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(world[iterx][iterz - 1].model));
+              glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(pPrevZBlock->model));
               glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(0 * sizeof(unsigned int)));
             }
 
-            if (iterx > 0 && !(world[iterx - 1][iterz].exists && (world[iterx - 1][iterz].y == world[iterx][iterz].y))) {
-              glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(world[iterx][iterz].model));
+            if (iterx > 0 && !(pPrevXBlock->y == pBlock->y)) {
+              glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(pBlock->model));
               glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(18 * sizeof(unsigned int)));
-              glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(world[iterx - 1][iterz].model));
+              glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(pPrevXBlock->model));
               glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(6 * sizeof(unsigned int)));
             }
 
